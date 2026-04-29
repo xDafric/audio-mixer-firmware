@@ -12,6 +12,8 @@ int value;
 
 int delayCount = 0;
 
+String input = "";
+
 void setup() {
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
@@ -19,7 +21,7 @@ void setup() {
   pinMode(STBY, OUTPUT);
   digitalWrite(STBY, HIGH);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.setTimeout(10);
 
   value = analogRead(FADER_PIN);
@@ -35,9 +37,24 @@ void loop() {
 }
 
 void readSerial() {
-  if (Serial.available()) {
-    target = Serial.parseInt();
-    moving = true;
+  if (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (c == '\n')
+    {
+      int value = input.toInt();
+
+      target = constrain(value, 30, 1020);
+      moving = true;
+
+
+      input = "";
+    }
+    else if (c != '\r')
+    {
+      input += c;
+    }
+    
   }
 }
 
@@ -62,7 +79,7 @@ void updateFader() {
 
   delayCount = 0;
 
-  int pwm = map(constrain(abs(error), 0, 100), 0, 100, 60, 140);
+  int pwm = map(constrain(abs(error), 0, 100), 0, 100, 65, 140);
 
   if (error > 0) {
     moveUp(pwm);
