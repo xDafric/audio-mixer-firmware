@@ -1,8 +1,8 @@
-#define AIN1 6
-#define AIN2 7
-#define PWMA 5
-#define STBY 8
-#define FADER_PIN A0
+#define AIN1 16
+#define AIN2 4
+#define PWMA 18
+#define STBY 23
+#define FADER_PIN 34
 
 bool moving = true;
 int target = 512;
@@ -12,7 +12,8 @@ int value;
 
 int delayCount = 0;
 
-String input = "";
+char input[16];
+int inputIndex = 0;
 
 void setup() {
   pinMode(AIN1, OUTPUT);
@@ -24,42 +25,44 @@ void setup() {
   Serial.begin(115200);
   Serial.setTimeout(10);
 
+  analogReadResolution(10);
+
   value = analogRead(FADER_PIN);
 }
 
 void loop() {
   readSerial();
-  updateFader();
-  int pos = analogRead(FADER_PIN);
+  int pos = readStable(FADER_PIN);
+  updateFader(pos);
   if(abs(pos - value) > deadband) {
     changeValue(pos);
   }
 }
 
+int readStable(int pin) {
+  int sum = 0;
+  for (int i = 0; i < 16; i++) {
+    sum += analogRead(pin);
+  }
+  return sum / 16;
+}
+
 void readSerial() {
-  if (Serial.available() > 0) {
+  while (Serial.available() > 0) {
     char c = Serial.read();
 
-    if (c == '\n')
-    {
-      int value = input.toInt();
-
-      target = constrain(value, 30, 1020);
+    if (c == '\n') {
+      input[inputIndex] = '\0';
+      target = constrain(atoi(input), 0, 1020);
       moving = true;
-
-
-      input = "";
+      inputIndex = 0;
+    } else if (c != '\r' && inputIndex < 15) {
+      input[inputIndex++] = c;
     }
-    else if (c != '\r')
-    {
-      input += c;
-    }
-    
   }
 }
 
-void updateFader() {
-  int pos = analogRead(FADER_PIN);
+void updateFader(int pos) {
   int error = target - pos;
 
   if(!moving) {
@@ -69,7 +72,7 @@ void updateFader() {
   if (abs(error) < deadband) {
     brakeMotor();
     delayCount += 1;
-    if(delayCount > 500) {
+    if(delayCount > 100) {
       moving = false;
       delayCount = 0;
       return;
@@ -96,20 +99,20 @@ void changeValue(int newValue) {
 }
 
 void moveUp(int speed) {
-  digitalWrite(AIN1, HIGH);
-  digitalWrite(AIN2, LOW);
-  analogWrite(PWMA, speed);
-}
-
-void moveDown(int speed) {
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, HIGH);
   analogWrite(PWMA, speed);
 }
 
+void moveDown(int speed) {
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  analogWrite(PWMA, speed);
+}
+
 void stopMotor() {
   digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, LOW);
+  digitalWrite(AIN2, HIGH);
   analogWrite(PWMA, 0);
 }
 
