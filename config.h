@@ -8,3 +8,5 @@ const int WIPER_PINS[NUM_FADERS] = {34, 35};
 const int IN1_PINS[NUM_FADERS] = {16, 17};
 const int IN2_PINS[NUM_FADERS] = {4, 5};
 const int PWM_PINS[NUM_FADERS] = {18, 19};
+
+uint8_t masterMac[] = {0x58, 0x8C, 0x81, 0x5A, 0x3A, 0xAC};
