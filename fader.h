@@ -1,5 +1,7 @@
 #pragma once
 #include "config.h"
+#include "Arduino.h"
+#include "packet.h"
 
 class Fader {
   private:
@@ -17,6 +19,7 @@ class Fader {
     int target;
     int delayCount;
 
+    uint8_t macAddress[6];
 
     int readWiper();
 
@@ -28,7 +31,10 @@ class Fader {
     void brakeMotor();
 
   public:
-    Fader(int index, int IN1, int IN2, int PWM, int WIPER);
+    Fader(int index, int IN1, int IN2, int PWM, int WIPER, uint8_t macAddress[]);
+
+    void setupESPNow();
+    void sendEvent(MasterEvent event, String payload);
 
     void moveTo(int pos);
     

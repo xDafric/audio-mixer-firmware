@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "fader.h"
+#include "packet.h"
 
 char input[16];
 int inputIndex = 0;
@@ -12,7 +13,7 @@ Fader* faders[NUM_FADERS];
 
 void setup() {
   for(int i = 0; i < NUM_FADERS; i++) {
-    faders[i] = new Fader(i, IN1_PINS[i], IN2_PINS[i], PWM_PINS[i], WIPER_PINS[i]);
+    faders[i] = new Fader(i, IN1_PINS[i], IN2_PINS[i], PWM_PINS[i], WIPER_PINS[i], MAC_ADDRESSES[i]);
   }
   
   pinMode(STBY, OUTPUT);
@@ -35,32 +36,42 @@ void setupESPNow() {
 
   esp_now_register_recv_cb(onReceive);
 
-  esp_now_peer_info_t peer = {};
-  memcpy(peer.peer_addr, masterMac, 6);
-  peer.channel = 6;
-  peer.encrypt = false;
+  for(int i = 0; i < NUM_FADERS; i++) {
+    faders[i]->setupESPNow();
+  }
 
-  esp_now_add_peer(&peer);
-
+  Serial.print("MacAddress: ");
   Serial.println(WiFi.macAddress());
 }
 
+void broadcastEvent(MasterEvent event, String payload) {
+  for(int i = 0; i < NUM_FADERS; i++) {
+    faders[i]->sendEvent(event, payload);
+  }
+}
+
 void onReceive(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  char msg[64];
-  memcpy(msg, data, len);
-  msg[len] = '\0';
+  Packet packet;
+  memcpy(&packet, data, sizeof(packet));
 
-  char* colon = strchr(msg, ':');
-  if (colon != nullptr) {
-    *colon = '\0';              // String hier trennen
+  Serial.print("Recieved: ");
+  Serial.print(packet.event);
+  Serial.print(":");
+  Serial.println(packet.payload);
 
-    char* left = msg;           // vor :
-    char* right = colon + 1;    // nach :
+  if(packet.event == MUTE) {
+    faders[atoi(packet.payload)]->moveTo(0);
+  }
 
-    int id = atoi(left);
-    int value = atoi(right);
-
-    faders[id]->moveTo(value);
+  //temp test
+  if(packet.event == BUTTON) {
+    Serial.println(packet.payload);
+    if(std::stoi(packet.payload) == 0) {
+      faders[0]->moveTo(1024);
+    }
+    else if(std::stoi(packet.payload) == 1) {
+      faders[1]->moveTo(1024);
+    }
   }
 }
 
@@ -72,10 +83,8 @@ void loop() {
     bool changed = fader->update(value);
     if(changed) {
       Serial.printf("%d:%d\n", i, value);
-
-      char msg[64];
-      snprintf(msg, sizeof(msg), "%d:%d", i, value);
-      esp_now_send(masterMac, (uint8_t*)msg, strlen(msg) + 1);
+      String payload = String(i) + ":" + String(value);
+      broadcastEvent(CHANGE_VOLUME, payload);
     }
   }
 }

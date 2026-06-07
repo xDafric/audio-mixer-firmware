@@ -1,11 +1,12 @@
 #include "fader.h";
 
-Fader::Fader(int index, int IN1, int IN2, int PWM, int WIPER) {
+Fader::Fader(int index, int IN1, int IN2, int PWM, int WIPER, uint8_t macAddress[]) {
   Fader::index = index;
   Fader::IN1 = IN1;
   Fader::IN2 = IN2;
   Fader::PWM = PWM;
   Fader::WIPER = WIPER;
+  memcpy(this->macAddress, macAddress, 6);
 
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
@@ -27,6 +28,30 @@ int Fader::readWiper() {
   }
   return sum / 16;
 }
+
+void Fader::setupESPNow() {
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, macAddress, 6);
+  peer.channel = 6;
+  peer.encrypt = false;
+
+  esp_now_add_peer(&peer);
+}
+
+void Fader::sendEvent(MasterEvent event, String payload) {
+  Packet packet;
+
+  packet.event = event;
+  strncpy(packet.payload, payload.c_str(), sizeof(packet.payload) - 1);
+  packet.payload[sizeof(packet.payload) - 1] = '\0';
+
+  Serial.print("Outgoing Event for " + String(index) + ": ");
+  Serial.print(packet.event);
+  Serial.print(":");
+  Serial.println(packet.payload);
+  esp_now_send(macAddress, (uint8_t*)&packet, sizeof(packet));
+}
+
 
 void Fader::moveTo(int pos) {
   target = constrain(pos, 0, 1020);
